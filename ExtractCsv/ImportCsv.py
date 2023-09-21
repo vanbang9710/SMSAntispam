@@ -46,17 +46,13 @@ mysql_config = {
     'database': "student_database",
 }
 
-# Define the table name
 table_name = "atp_huawei_smppgw"
 
 # %%
-#1 Create table
+# 1 Create table
 
 try:
-    # Connect to the MySQL server
     connection = mysql.connector.connect(**mysql_config)
-
-    # Create a cursor object to interact with the database
     cursor = connection.cursor()
 
     # Define the SQL queries to delete and recreate the table
@@ -118,26 +114,20 @@ try:
     );
     """
 
-    # Execute the delete query
     cursor.execute(delete_table_query)
     print(f"Table {table_name} deleted successfully")
-
-    # Execute the recreate query
     cursor.execute(recreate_table_query)
     print(f"Table {table_name} recreated successfully")
 
-    # Commit the changes
     connection.commit()
 
 except mysql.connector.Error as error:
     print(f"Error: {error}")
 finally:
-    # Close the cursor and connection
-    if 'cursor' in locals():
+    if "cursor" in locals():
         cursor.close()
-    if 'connection' in locals() and connection.is_connected():
+    if "connection" in locals() and connection.is_connected():
         connection.close()
-
 
 # %%
 # #1 Describe table
@@ -171,18 +161,14 @@ finally:
 
 # %%
 # #1 import CSV file with pandas
-
+# import sqlalchemy
 # Define the path to your CSV file
 csv_file_path = "201901010954023928_1.csv"
 
 try:
-    # Connect to the MySQL server
     connection = mysql.connector.connect(**mysql_config)
-
-    # Create a cursor object to interact with the database
     cursor = connection.cursor()
 
-    # Read the CSV file into a Pandas DataFrame
     df = pd.read_csv(
         csv_file_path,
         dtype={
@@ -242,27 +228,34 @@ try:
     )
 
     # Replace NaN values with None (NULL) in the DataFrame
+    df = df.replace({np.nan: None})
     # df.fillna(value = 'None', inplace=True)
     # df = df.replace(np.nan, None)
-    df = df.replace({np.nan: None})
 
-    # Iterate through each row in the DataFrame and insert into the MySQL table
-    for index, row in df.iterrows():
-        try:
-            # Replace NaN values with None (NULL) in the DataFrame
-            # row = row.where(pd.notna(row), None)
-            placeholders = ", ".join(["%s" for _ in row])
-            insert_query = f"INSERT INTO {table_name} VALUES ({placeholders})"
-            cursor.execute(insert_query, tuple(row))
-            connection.commit()
-        except mysql.connector.Error as mysql_error:
-            print(f"MySQL Error: {mysql_error}")
-            print(f"Row {index + 1}: {row}")
-            break
-        except Exception as e:
-            print(f"An error occurred: {e}")
-            print(f"Row {index + 1}: {row}")
+    placeholders = ", ".join(["%s" for _ in df.columns])
+    insert_query = f"INSERT INTO {table_name} VALUES ({placeholders})"
+    values = [tuple(row) for _, row in df.iterrows()]
+    cursor.executemany(insert_query, values)
 
+    # df.to_sql(name=table_name, con=connection, if_exists='append', index=False)
+
+    # # Iterate through each row in the DataFrame and insert into the MySQL table
+    # for index, row in df.iterrows():
+    #     try:
+    #         # Replace NaN values with None (NULL) in the DataFrame
+    #         # row = row.where(pd.notna(row), None)
+    #         placeholders = ", ".join(["%s" for _ in row])
+    #         insert_query = f"INSERT INTO {table_name} VALUES ({placeholders})"
+    #         cursor.execute(insert_query, tuple(row))
+    #     except mysql.connector.Error as mysql_error:
+    #         print(f"MySQL Error: {mysql_error}")
+    #         print(f"Row {index + 1}: {row}")
+    #         break
+    #     except Exception as e:
+    #         print(f"An error occurred: {e}")
+    #         print(f"Row {index + 1}: {row}")
+
+    connection.commit()
     print("Data imported successfully!")
 
 except mysql.connector.Error as error:
